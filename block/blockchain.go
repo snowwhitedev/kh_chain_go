@@ -1,4 +1,4 @@
-package main
+package block
 
 import (
 	"crypto/sha256"
@@ -11,8 +11,8 @@ import (
 
 const (
 	MINING_DIFFICULTY = 3
-	MINING_SENDER = "THE BLOCKCHAIN"
-	MINING_REWARD = 1.0
+	MINING_SENDER     = "THE BLOCKCHAIN"
+	MINING_REWARD     = 1.0
 )
 
 type Block struct {
@@ -60,8 +60,8 @@ func (b *Block) MarshalJSON() ([]byte, error) {
 }
 
 type Blockchain struct {
-	transactionPool []*Transaction
-	chain           []*Block
+	transactionPool   []*Transaction
+	chain             []*Block
 	blockchainAddress string
 }
 
@@ -93,7 +93,7 @@ func (bc *Blockchain) Print() {
 	fmt.Printf("%s\n", strings.Repeat("*", 25))
 }
 
-func (bc *Blockchain) AddTransaction (sender string, recipient string, value float32) {
+func (bc *Blockchain) AddTransaction(sender string, recipient string, value float32) {
 	t := NewTransaction(sender, recipient, value)
 	bc.transactionPool = append(bc.transactionPool, t)
 }
@@ -102,9 +102,10 @@ func (bc *Blockchain) CopyTransactionPool() []*Transaction {
 	transactions := make([]*Transaction, 0)
 	for _, t := range bc.transactionPool {
 		transactions = append(transactions,
-			NewTransaction(t.senderBlockchainAddress, t.recipientBlockchainAddress, t.value))
+			NewTransaction(t.senderBlockchainAddress,
+				t.recipientBlockchainAddress,
+				t.value))
 	}
-
 	return transactions
 }
 
@@ -122,7 +123,6 @@ func (bc *Blockchain) ProofOfWork() int {
 	for !bc.ValidProof(nonce, previousHash, transactions, MINING_DIFFICULTY) {
 		nonce += 1
 	}
-
 	return nonce
 }
 
@@ -131,14 +131,31 @@ func (bc *Blockchain) Mining() bool {
 	nonce := bc.ProofOfWork()
 	previousHash := bc.LastBlock().Hash()
 	bc.CreateBlock(nonce, previousHash)
-	log.Println("action=mining, status=succss")
+	log.Println("action=mining, status=success")
 	return true
+}
+
+func (bc *Blockchain) CalculateTotalAmount(blockchainAddress string) float32 {
+	var totalAmount float32 = 0.0
+	for _, b := range bc.chain {
+		for _, t := range b.transactions {
+			value := t.value
+			if blockchainAddress == t.recipientBlockchainAddress {
+				totalAmount += value
+			}
+
+			if blockchainAddress == t.senderBlockchainAddress {
+				totalAmount -= value
+			}
+		}
+	}
+	return totalAmount
 }
 
 type Transaction struct {
 	senderBlockchainAddress    string
 	recipientBlockchainAddress string
-	value											 float32
+	value                      float32
 }
 
 func NewTransaction(sender string, recipient string, value float32) *Transaction {
@@ -147,40 +164,19 @@ func NewTransaction(sender string, recipient string, value float32) *Transaction
 
 func (t *Transaction) Print() {
 	fmt.Printf("%s\n", strings.Repeat("-", 40))
-	fmt.Printf(" sender_blockchain_address       %s\n", t.senderBlockchainAddress)
-	fmt.Printf(" recipient_blockchain_address    %s\n", t.recipientBlockchainAddress)
-	fmt.Printf(" recipient_blockchain_address    %1f\n", t.value)
+	fmt.Printf(" sender_blockchain_address      %s\n", t.senderBlockchainAddress)
+	fmt.Printf(" recipient_blockchain_address   %s\n", t.recipientBlockchainAddress)
+	fmt.Printf(" value                          %.1f\n", t.value)
 }
 
 func (t *Transaction) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		Sender     string `json:"sender_blockchain_address"`
-		Recipient  string `json:"recipient_blockchain_address"`
-		Value      float32 `json:"value"`
+		Sender    string  `json:"sender_blockchain_address"`
+		Recipient string  `json:"recipient_blockchain_address"`
+		Value     float32 `json:"value"`
 	}{
-		Sender: 		t.senderBlockchainAddress,
-		Recipient: 	t.recipientBlockchainAddress,
-		Value: 			t.value,
+		Sender:    t.senderBlockchainAddress,
+		Recipient: t.recipientBlockchainAddress,
+		Value:     t.value,
 	})
-}
-
-func init() {
-	log.SetPrefix("Blockchain: ")
-}
-
-func main() {
-	myBlockchainAddress := "my_blockchain_address"
-
-	blockchain := NewBlockchain(myBlockchainAddress)
-	
-	blockchain.Print()
-
-	blockchain.AddTransaction("A", "B", 1.0)
-	blockchain.Mining()
-	blockchain.Print()
-
-	blockchain.AddTransaction("C", "D", 2.0)
-	blockchain.AddTransaction("X", "Y", 3.0)
-	blockchain.Mining()
-	blockchain.Print()
 }
